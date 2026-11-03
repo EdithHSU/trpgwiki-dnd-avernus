@@ -3,12 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>待確認名詞</title>
 <!--
-  墜入阿弗納斯 Wiki：待確認名詞的填寫表單（本機工具，不會發布到網站）。
-  用法：用瀏覽器直接打開本檔 → 逐題填寫（自動暫存在瀏覽器）→ 按「儲存 JSON」存成
-  wiki\tools\confirm-answers.json，之後整理站台時由 Claude 讀取這個檔案批次更新頁面。
-  題目資料在下方 ITEMS；新增題目時沿用同樣的欄位，id 不要重複、不要改已經用過的 id。
+  墜入阿弗納斯 Wiki：待確認名詞的填寫表單。
+  網站上的網址是 <site_url>/confirm/（不在導覽列、不給搜尋引擎收錄）。
+  - 共用模式（API_URL 有填）：輸入名字與通關密語後填寫，答案即時存進 Google 試算表，
+    每題下方列出其他人的答案；名字相同（不分大小寫、全半形、前後空白）就視為同一人，答案合併。
+    後端程式與安裝步驟見 wiki\tools\confirm-sheet.gs。
+  - 本機模式（API_URL 空白）：答案只暫存在瀏覽器，用「儲存 JSON」存成 confirm-answers.json。
+  題目資料在下方 ITEMS；新增題目時沿用同樣的欄位，id 不要重複、不要改已經用過的 id
+  （試算表用 id 對應答案）。
 -->
 <style>
   :root {
@@ -48,15 +53,35 @@
     border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer;
   }
   button:hover { background: var(--hover); }
+  button:disabled { opacity: .5; cursor: default; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button.primary:hover { filter: brightness(1.08); }
   button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   .saved { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+  .me { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+  .me b { color: var(--text); font-weight: 600; }
 
   h1 { font-size: 40px; font-weight: 700; line-height: 1.2; margin: 56px 0 8px; }
   .lead { color: var(--text-2); margin: 0 0 16px; }
   .callout { background: var(--callout); border-radius: 6px; padding: 14px 16px; margin: 16px 0 24px; font-size: 15px; }
   .callout ol { margin: 4px 0 0; padding-left: 1.4em; }
+  body:not(.online) .only-online, body.online .only-local { display: none !important; }
+
+  /* 登入 */
+  .back { margin: 24px 0 0; font-size: 14px; }
+  .back a { color: var(--text-2); text-decoration: none; }
+  .back a:hover { color: var(--text); text-decoration: underline; }
+  .gate { max-width: 560px; padding: 20px 24px; }
+  .gate-title { font-size: 18px; }
+  .gate p { margin: 4px 0 14px; color: var(--text-2); }
+  .gate form { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center; }
+  .gate label { font-size: 14px; color: var(--text-2); }
+  .gate input {
+    font: inherit; font-size: 15px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; width: 100%;
+  }
+  .gate .gate-actions { grid-column: 2; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .gate-msg { font-size: 14px; color: var(--warn); }
 
   .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0 8px; }
   .filters input[type=search] {
@@ -99,6 +124,14 @@
   .opt input { margin: 0; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .actions button { font-size: 13px; padding: 4px 10px; }
+
+  /* 其他人的答案 */
+  .others { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 14px; }
+  .others-title { font-size: 13px; color: var(--text-3); margin-bottom: 2px; }
+  .other { color: var(--text-2); }
+  .other b { color: var(--text); font-weight: 500; }
+  .other-note { display: block; font-size: 13px; color: var(--text-3); padding-left: 1em; white-space: pre-wrap; }
+
   .empty { color: var(--text-3); padding: 24px 0; text-align: center; }
   .hidden { display: none !important; }
 
@@ -106,6 +139,8 @@
     .wrap, .bar-inner { padding-left: 16px; padding-right: 16px; }
     h1 { font-size: 30px; margin-top: 32px; }
     .label { min-width: 0; width: 100%; }
+    .gate form { grid-template-columns: 1fr; }
+    .gate .gate-actions { grid-column: 1; }
   }
 </style>
 </head>
@@ -117,37 +152,65 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     </div>
     <span class="saved" id="savedHint">尚未修改</span>
-    <button id="btnImport" type="button">載入 JSON</button>
-    <button id="btnSave" class="primary" type="button">儲存 JSON</button>
+    <span class="me only-online hidden" id="me"></span>
+    <button id="btnSwitch" class="only-online hidden" type="button">換人</button>
+    <button id="btnRefresh" class="only-online hidden" type="button">重新整理</button>
+    <button id="btnExport" class="only-online hidden" type="button">下載全部答案</button>
+    <button id="btnImport" class="only-local" type="button">載入 JSON</button>
+    <button id="btnSave" class="primary only-local" type="button">儲存 JSON</button>
     <input type="file" id="fileInput" accept="application/json,.json" class="hidden">
   </div>
 </div>
 
 <main class="wrap">
+  <p class="back"><a href="../">← 回到 Wiki</a></p>
   <h1>待確認名詞</h1>
   <p class="lead">墜入阿弗納斯 Wiki 整理時，從語音辨識逐字稿推測、還沒確定的名字與細節。</p>
 
-  <div class="callout">
-    <b>怎麼填</b>
-    <ol>
-      <li>知道正確答案就直接填；網站目前的寫法正確，按「目前寫法正確」。</li>
-      <li>點「辨識到的寫法」可以把它帶進輸入框再修改。</li>
-      <li>不記得就按「不確定」，或直接跳過。</li>
-      <li>填寫內容會自動暫存在這個瀏覽器裡；全部填完（或想先存一次）時按右上角「<b>儲存 JSON</b>」，存成 <code>wiki\tools\confirm-answers.json</code>。</li>
-    </ol>
-  </div>
+  <section class="callout gate only-online hidden" id="gate">
+    <b class="gate-title">開始填寫</b>
+    <p>輸入你的名字和通關密語。名字可以用角色名或暱稱；<b>名字一樣就算同一個人</b>，答案會合併在一起，換手機或電腦時輸入同一個名字就能接著填。</p>
+    <form id="gateForm" autocomplete="on">
+      <label for="gateName">名字</label>
+      <input id="gateName" name="nickname" maxlength="30" required autocomplete="nickname">
+      <label for="gateKey">通關密語</label>
+      <input id="gateKey" type="password" required autocomplete="current-password">
+      <div class="gate-actions">
+        <button class="primary" type="submit" id="gateBtn">開始填寫</button>
+        <span class="gate-msg" id="gateMsg" role="status"></span>
+      </div>
+    </form>
+  </section>
 
-  <div class="filters">
-    <input type="search" id="search" placeholder="搜尋題目、名字或集數…" aria-label="搜尋">
-    <div class="seg" role="group" aria-label="篩選">
-      <button type="button" data-filter="all" aria-pressed="true">全部</button>
-      <button type="button" data-filter="todo" aria-pressed="false">未填</button>
-      <button type="button" data-filter="done" aria-pressed="false">已填</button>
+  <div id="app">
+    <div class="callout">
+      <b>怎麼填</b>
+      <ol class="only-online">
+        <li>知道正確答案就直接填；網站目前的寫法正確，按「目前寫法正確」。</li>
+        <li>點「辨識到的寫法」可以把它帶進輸入框再修改。</li>
+        <li>不記得就按「不確定」，或直接跳過。</li>
+        <li>答案會<b>自動存到共用的答案表</b>，每題下方會列出其他人填的答案；填到一半關掉也沒關係，下次打開會接著填。</li>
+      </ol>
+      <ol class="only-local">
+        <li>知道正確答案就直接填；網站目前的寫法正確，按「目前寫法正確」。</li>
+        <li>點「辨識到的寫法」可以把它帶進輸入框再修改。</li>
+        <li>不記得就按「不確定」，或直接跳過。</li>
+        <li>填寫內容會自動暫存在這個瀏覽器裡；全部填完（或想先存一次）時按右上角「<b>儲存 JSON</b>」，存成 <code>wiki\tools\confirm-answers.json</code>。</li>
+      </ol>
     </div>
-  </div>
 
-  <div id="list"></div>
-  <p class="empty hidden" id="empty">沒有符合的題目。</p>
+    <div class="filters">
+      <input type="search" id="search" placeholder="搜尋題目、名字或集數…" aria-label="搜尋">
+      <div class="seg" role="group" aria-label="篩選">
+        <button type="button" data-filter="all" aria-pressed="true">全部</button>
+        <button type="button" data-filter="todo" aria-pressed="false">未填</button>
+        <button type="button" data-filter="done" aria-pressed="false">已填</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+    <p class="empty hidden" id="empty">沒有符合的題目。</p>
+  </div>
 </main>
 
 <script>
@@ -169,7 +232,6 @@ const ITEMS = [
   { id: 'fryja', g: 'people', type: 'name', q: '至高大廳地下墓穴照顧倖存者的女祭司', cur: '弗莉亞', alts: ['弗莉亞', '弗里亞', '莫莉亞', '佛雷雅', '盧莉亞'], ep: '0830、0914、1025' },
   { id: 'druid', g: 'people', type: 'name', q: '信仰西凡納斯的德魯伊', cur: '賽爾特恩', alts: ['賽爾特恩', '塞爾克恩', '賽爾登'], ep: '0830' },
   { id: 'sola', g: 'people', type: 'name', q: '躲在碗櫥裡的鄰居千金', cur: '索拉（海芙蘭家）', alts: ['索拉・海芙蘭', '海浮蘭'], ep: '0816' },
-  { id: 'vitik-family', g: 'people', type: 'name', q: '維提克的家族姓氏', cur: '（網站沒有寫出）', alts: ['柯索格里夫', '克索格里夫', '科索格里夫'], ep: '0726、0816、202512-2、0103' },
   { id: 'amrik', g: 'people', type: 'name', q: '萬瑟姆普家的大少爺（借錢給隊伍、後來裸奔）', cur: '阿姆利克', alts: ['阿姆利克', '阿姆里車'], ep: '0405、0426' },
   { id: 'thurstwell', g: 'people', type: 'name', q: '深居簡出、操控小惡魔的萬瑟姆普家公子', cur: '瑟斯維爾', alts: ['瑟斯維爾', '瑟士威爾', '色思維克'], ep: '0405、0412、0426' },
   { id: 'mortlock', g: 'people', type: 'name', q: '先前被抓、交給公爵看管的萬瑟姆普家公子', cur: '（網站沒有寫出）', alts: ['莫特洛克', '摩特洛克'], ep: '0405、0412' },
@@ -252,12 +314,11 @@ const ITEMS = [
   { id: 'uldrak-realm', g: 'people', type: 'name', q: '烏爾德拉克邀隊伍日後去找他的國度', cur: '（網站沒有寫出）', alts: ['蘇爾特'], ep: '0039' },
   { id: 'postmaster', g: 'people', type: 'name', q: '流浪市集郵局「從這裡到阿弗納斯」的安阻膜店主', cur: '（網站沒有寫出）', alts: ['菲特阿赫勒', '菲特阿赫德'], ep: '0040' },
   { id: 'ichor-dealer', g: 'people', type: 'name', q: '流浪市集的穢液商人（觸手手臂的人類法師）', cur: '（網站沒有寫出）', alts: ['艾拉赫'], ep: '0040' },
-  { id: 'kaelen-church', g: 'people', type: 'name', q: '凱侖在博德之門教會的主持人', cur: '（網站沒有寫出）', alts: ['獲奇斯修士'], ep: '0040' },
   { id: 'gauntlet-captain', g: 'people', type: 'name', q: '蓋比要找的鐵手會隊長', cur: '（網站沒有寫出）', alts: ['歐瑟爾', '歐瑟爾佛羅姆', '歐斯爾夫'], ep: '0040、0041' },
   { id: 'arcanaloth-name', g: 'people', type: 'name', q: '貝爾派來的奧術魔的名字', cur: '（網站只寫「奧術魔」）', alts: ['飛翅泰格', '飛翅泰特', '菲斯泰特', '泰哥'], ep: '0041 起', ctx: 'GM 說英文類似 Tater。' },
   { id: 'imp-guide', g: 'people', type: 'name', q: '0041 替貝爾帶路的小魔鬼', cur: '（網站沒有寫出）', alts: ['巴拉卡羅斯'], ep: '0041' },
   { id: 'ferry-captain', g: 'people', type: 'name', q: '0041 冥河渡船的船長', cur: '（網站沒有寫出）', alts: ['克林甲克'], ep: '0041' },
-  { id: 'angor-imp', g: 'people', type: 'name', q: '安格的小惡魔的名字', cur: '（網站寫「小惡魔」）', alts: ['塔吉恩', '塔基恩'], ep: '0044', ctx: '日文暱稱辨識為「天邪」；安格的全名辨識為「安格羅米爾」，知道的話請在備註補充。' },
+  { id: 'angor-imp', g: 'people', type: 'name', q: '安格的小惡魔的名字', cur: '（網站寫「小惡魔」）', alts: ['塔吉恩', '塔基恩'], ep: '0044', ctx: '日文暱稱辨識為「天邪」。' },
   { id: 'bel-forge', g: 'places', type: 'name', q: '貝爾在火山坡上的鋼鐵堡壘', cur: '貝爾的熔爐', alts: ['貝爾的熔爐'], ep: '0039～0041' },
   { id: 'scheming-sun', g: 'places', type: 'name', q: '魔鬼們對伴陽的稱呼（也刻在九根權杖上）', cur: '0045 起網站寫「陰謀之陽 1～9」', alts: ['陰謀之陽', '陰謀之養'], ep: '0042、松江南京站' },
   { id: 'who-0039-stop', g: 'who', type: 'who', q: '0039 制止烏爾德拉克殺死投降角魔的隊員', guess: '維提克', ep: '0039' },
@@ -300,19 +361,38 @@ const ITEMS = [
   { id: 'term-gorgon', g: 'terms', type: 'name', q: '奧蘭蘇斯戰車的坐騎（會噴石化吐息的牛）', cur: '石化牛', alts: ['石化牛'], ep: 'Monkie 3' },
   { id: 'term-mudskipper', g: 'terms', type: 'name', q: '0050 像巨大彈塗魚、會吐出惡魔大軍的超巨型惡魔', cur: '（網站只描述外觀）', alts: ['卡洛克托克'], ep: '0050' },
   { id: 'term-hezrou', g: 'terms', type: 'name', q: '0050～0051 青蛙臉、惡臭的大型惡魔（推測 Hezrou）', cur: '（網站只描述外觀）', alts: ['狂戰魔'], ep: '0050、0051' },
-  { id: 'kaelen-pronoun', g: 'misc', type: 'choice', q: '凱侖的代名詞', options: ['他', '她', '其他（請在備註說明）'], ep: '全站', ctx: 'Monkie 2 的摘要用「她／妳」，其他集多用「他」。網站舊頁面寫「他」，新頁面盡量避開代名詞。' },
-  { id: 'gabi-pronoun', g: 'misc', type: 'choice', q: '蓋比的代名詞', options: ['他', '她', '其他（請在備註說明）'], ep: '全站', ctx: '各集摘要「他／她」混用，網站目前盡量避開代名詞。' },
 ];
 
+/* ---------- 設定 ----------
+   Google Apps Script 網頁應用程式的網址（後端與安裝步驟見 wiki\tools\confirm-sheet.gs）。
+   空白時是本機模式：答案只存在這個瀏覽器，用「儲存 JSON」存檔。 */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwFlLYfNF3gNsTYWklCeenBZ9egkcJMm3k2v6cMIbELkQcUYpmHqdyzMVRVa61Zd4uO/exec';
+const ONLINE = !!API_URL;
+if (ONLINE) document.body.classList.add('online');
+
 /* ---------- 狀態 ---------- */
-const STORE_KEY = 'avernus-confirm-terms-v1';
-let answers = {};
-try { answers = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e) { answers = {}; }
-let filter = 'all', query = '', fileHandle = null, dirty = false;
+const LOCAL_KEY = 'avernus-confirm-terms-v1';     // 本機模式的答案
+const SESSION_KEY = 'avernus-confirm-online-v1';  // 共用模式的名字、通關密語與還沒同步的答案
+let answers = {};                                 // 自己的答案：id → { answer, who, note, status }
+let session = { name: '', key: '', pending: {} };
+let others = {}, lastRows = [];                   // 其他人的答案：id → [row]；lastRows 是整張答案表
+let filter = 'all', query = '', fileHandle = null, dirty = false, syncTimer = null, syncing = false;
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const get = id => (answers[id] ||= { answer: '', who: [], note: '', status: '' });
+const blank = () => ({ answer: '', who: [], note: '', status: '' });
+const get = id => (answers[id] ||= blank());
+// 名字相同就算同一人：統一全半形、空白與大小寫（後端用一樣的規則）
+const cleanName = s => String(s ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+const nameKey = s => cleanName(s).toLowerCase();
+const clock = () => { const t = new Date(); return `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`; };
+const hint = msg => { $('#savedHint').textContent = msg; };
+
+function readStore(k, fallback) { try { return JSON.parse(localStorage.getItem(k) || 'null') || fallback; } catch (e) { return fallback; } }
+function writeStore(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+if (ONLINE) { session = { ...session, ...readStore(SESSION_KEY, {}) }; session.pending ||= {}; }
+else answers = readStore(LOCAL_KEY, {});
 
 function isDone(item) {
   const a = answers[item.id];
@@ -320,10 +400,16 @@ function isDone(item) {
   return a.status === 'confirmed' || a.status === 'unsure' || !!(a.answer && a.answer.trim()) || (a.who && a.who.length > 0);
 }
 
-function persist() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(answers)); } catch (e) {}
-  dirty = true;
-  $('#savedHint').textContent = '已暫存在瀏覽器（尚未儲存 JSON）';
+function persist(id) {
+  if (ONLINE) {
+    if (id) session.pending[id] = { ...blank(), ...answers[id] };
+    writeStore(SESSION_KEY, session);
+    scheduleSync();
+  } else {
+    writeStore(LOCAL_KEY, answers);
+    dirty = true;
+    hint('已暫存在瀏覽器（尚未儲存 JSON）');
+  }
   updateProgress();
 }
 
@@ -361,7 +447,27 @@ function cardHTML(item) {
     <div class="card-head"><p class="q">${esc(item.q)}</p>${status}</div>
     ${meta}${body}
     <div class="actions">${actions.join('')}</div>
+    <div class="others-slot">${othersHTML(item.id)}</div>
   </article>`;
+}
+
+function describe(r) {
+  const parts = [];
+  if (r.answer) parts.push(r.answer);
+  if (r.who?.length) parts.push(r.who.join('、'));
+  if (r.status === 'unsure') parts.push('不確定');
+  return parts.join('，') || '（只寫了備註）';
+}
+
+function othersHTML(id) {
+  const rows = others[id] || [];
+  if (!rows.length) return '';
+  return `<div class="others"><div class="others-title">其他人的答案（${rows.length}）</div>${rows.map(r =>
+    `<div class="other"><b>${esc(r.name)}</b>：${esc(describe(r))}${r.note ? `<span class="other-note">${esc(r.note)}</span>` : ''}</div>`).join('')}</div>`;
+}
+
+function updateOthers() {
+  document.querySelectorAll('.card').forEach(card => { card.querySelector('.others-slot').innerHTML = othersHTML(card.dataset.id); });
 }
 
 function render() {
@@ -419,7 +525,7 @@ document.addEventListener('input', e => {
   if (f) {
     a[f] = e.target.value;
     if (f === 'answer') a.status = e.target.value.trim() ? 'confirmed' : '';
-    persist(); refreshBadge(id);
+    persist(id); refreshBadge(id);
   }
 });
 
@@ -431,10 +537,10 @@ document.addEventListener('change', e => {
     a.who = (a.who || []).filter(x => x !== p);
     if (e.target.checked) a.who.push(p);
     a.status = a.who.length ? 'confirmed' : '';
-    persist(); refreshBadge(id);
+    persist(id); refreshBadge(id);
   } else if (e.target.dataset.radio !== undefined) {
     a.answer = e.target.dataset.radio; a.status = 'confirmed';
-    persist(); refreshBadge(id);
+    persist(id); refreshBadge(id);
   }
 });
 
@@ -446,16 +552,16 @@ document.addEventListener('click', e => {
     if (btn.dataset.fill !== undefined) {
       const input = card.querySelector('input.answer');
       input.value = btn.dataset.fill; a.answer = btn.dataset.fill; a.status = 'confirmed';
-      persist(); refreshBadge(id); input.focus();
+      persist(id); refreshBadge(id); input.focus();
       return;
     }
     const act = btn.dataset.act;
     if (act === 'keep') { a.answer = item.cur; a.status = 'confirmed'; }
     else if (act === 'guess') { a.who = item.guess.split('、'); a.status = 'confirmed'; }
     else if (act === 'unsure') { a.status = 'unsure'; }
-    else if (act === 'clear') { answers[id] = { answer: '', who: [], note: '', status: '' }; }
+    else if (act === 'clear') { answers[id] = blank(); }
     else return;
-    persist(); refreshCard(id);
+    persist(id); refreshCard(id);
     return;
   }
   if (btn.dataset.filter) {
@@ -467,22 +573,167 @@ document.addEventListener('click', e => {
 
 $('#search').addEventListener('input', e => { query = e.target.value.trim(); render(); });
 
-/* ---------- 儲存與載入 JSON ---------- */
+/* ---------- 共用模式：與 Google 試算表同步 ---------- */
+async function api(body) {
+  // 不設 Content-Type（預設 text/plain），瀏覽器就不會先送 CORS 預檢，Apps Script 才收得到
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!data.ok) { const err = new Error(data.error); err.code = data.error; throw err; }
+  return data.rows || [];
+}
+
+function applyRows(rows, loadMine) {
+  lastRows = rows;
+  const me = nameKey(session.name);
+  others = {};
+  if (loadMine) answers = {};
+  for (const r of rows) {
+    if (r.key === me) {
+      if (loadMine) answers[r.id] = { answer: r.answer || '', who: r.who || [], note: r.note || '', status: r.status || '' };
+    } else (others[r.id] ||= []).push(r);
+  }
+  // 還沒同步成功的修改蓋在試算表的資料上面
+  if (loadMine) for (const [id, a] of Object.entries(session.pending)) answers[id] = { ...a };
+}
+
+function scheduleSync(delay = 1200) {
+  clearTimeout(syncTimer);
+  hint('有修改，準備同步…');
+  syncTimer = setTimeout(sync, delay);
+}
+
+async function sync() {
+  clearTimeout(syncTimer); syncTimer = null;
+  if (syncing) { syncTimer = setTimeout(sync, 800); return; }
+  syncing = true;
+  const sent = Object.entries(session.pending).map(([id, a]) => [id, JSON.stringify(a)]);
+  hint(sent.length ? '同步中…' : '更新中…');
+  try {
+    const rows = await api(sent.length
+      ? { action: 'save', key: session.key, name: session.name, items: sent.map(([id, s]) => ({ id, ...JSON.parse(s) })) }
+      : { action: 'list', key: session.key });
+    // 送出後又改過的題目留著，下一輪再送
+    for (const [id, s] of sent) if (JSON.stringify(session.pending[id]) === s) delete session.pending[id];
+    writeStore(SESSION_KEY, session);
+    applyRows(rows, false);
+    updateOthers();
+    hint(Object.keys(session.pending).length ? '有修改，準備同步…' : `已同步（${clock()}）`);
+  } catch (err) {
+    if (err.code === 'bad_key') showGate('通關密語已經更換，請重新輸入。');
+    else { hint('同步失敗，30 秒後重試（答案先暫存在這個瀏覽器）'); syncTimer = setTimeout(sync, 30000); }
+  } finally {
+    syncing = false;
+  }
+}
+
+function showGate(msg = '') {
+  $('#gate').classList.remove('hidden');
+  $('#app').classList.add('hidden');
+  document.querySelectorAll('.progress, #me, #btnSwitch, #btnRefresh, #btnExport').forEach(el => el.classList.add('hidden'));
+  $('#gateName').value = session.name || '';
+  $('#gateMsg').textContent = msg;
+  $(session.name ? '#gateKey' : '#gateName').focus();
+  hint('');
+}
+
+function enterApp() {
+  $('#gate').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  document.querySelectorAll('.progress, #me, #btnSwitch, #btnRefresh, #btnExport').forEach(el => el.classList.remove('hidden'));
+  $('#me').innerHTML = `填寫人：<b>${esc(session.name)}</b>`;
+  render();
+}
+
+async function login(name, key) {
+  const rows = await api({ action: 'list', key });
+  if (nameKey(name) !== nameKey(session.name)) session.pending = {};
+  session.name = name; session.key = key;
+  writeStore(SESSION_KEY, session);
+  applyRows(rows, true);
+  enterApp();
+  const mine = rows.filter(r => r.key === nameKey(name)).length;
+  hint(mine ? `「${name}」之前填過 ${mine} 題，已載入，答案會合併在一起` : `已連線（${clock()}）`);
+  if (Object.keys(session.pending).length) scheduleSync(300);
+}
+
+$('#gateForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = cleanName($('#gateName').value), key = $('#gateKey').value.trim();
+  if (!name || !key) return;
+  $('#gateBtn').disabled = true; $('#gateMsg').textContent = '連線中…';
+  try { await login(name, key); $('#gateKey').value = ''; }
+  catch (err) { $('#gateMsg').textContent = err.code === 'bad_key' ? '通關密語不對。' : '連不上答案表，請稍後再試。'; }
+  finally { $('#gateBtn').disabled = false; }
+});
+
+$('#btnSwitch').addEventListener('click', async () => {
+  if (Object.keys(session.pending).length) await sync();
+  const n = Object.keys(session.pending).length;
+  if (n && !confirm(`還有 ${n} 題沒有同步成功，換人會丟掉這些修改。確定要換人嗎？`)) return;
+  session = { name: '', key: '', pending: {} };
+  writeStore(SESSION_KEY, session);
+  answers = {}; others = {}; lastRows = [];
+  showGate();
+});
+
+$('#btnRefresh').addEventListener('click', () => sync());
+
+$('#btnExport').addEventListener('click', async () => {
+  await sync();
+  const data = {
+    source: 'wiki/docs/confirm/index.html',
+    exported_at: new Date().toISOString(),
+    total: ITEMS.length,
+    people: [...new Set(lastRows.map(r => r.name))],
+    items: ITEMS.map(i => ({
+      ...baseItem(i),
+      responses: lastRows.filter(r => r.id === i.id).map(r => ({
+        name: r.name, answer: r.answer || null, who: r.who?.length ? r.who : null,
+        status: r.status || 'unanswered', note: r.note || null, updated: r.updated,
+      })),
+    })),
+  };
+  download(JSON.stringify(data, null, 2) + '\n', 'confirm-answers.json');
+  hint('已下載 confirm-answers.json，請移到 wiki\\tools\\');
+});
+
+// 關掉分頁時把還沒送出的修改盡量送出去（送不成也還留在瀏覽器，下次打開會再送）
+window.addEventListener('pagehide', () => {
+  if (!ONLINE || !session.key || !Object.keys(session.pending).length) return;
+  const items = Object.entries(session.pending).map(([id, a]) => ({ id, ...a }));
+  navigator.sendBeacon?.(API_URL, new Blob([JSON.stringify({ action: 'save', key: session.key, name: session.name, items })], { type: 'text/plain;charset=UTF-8' }));
+});
+
+/* ---------- 本機模式：儲存與載入 JSON ---------- */
+function baseItem(i) {
+  return {
+    id: i.id, group: GROUPS.find(g => g.id === i.g).title, type: i.type, question: i.q,
+    episodes: i.ep, current_on_site: i.cur ?? null, recognized_as: i.alts ?? null, guess: i.guess ?? null,
+  };
+}
+
 function buildExport() {
   return {
-    source: 'wiki/tools/confirm-terms.html',
+    source: 'wiki/docs/confirm/index.html',
     exported_at: new Date().toISOString(),
     total: ITEMS.length,
     answered: ITEMS.filter(isDone).length,
     items: ITEMS.map(i => {
       const a = answers[i.id] || {};
       return {
-        id: i.id, group: GROUPS.find(g => g.id === i.g).title, type: i.type, question: i.q,
-        episodes: i.ep, current_on_site: i.cur ?? null, recognized_as: i.alts ?? null, guess: i.guess ?? null,
+        ...baseItem(i),
         answer: a.answer || null, who: a.who?.length ? a.who : null, status: a.status || 'unanswered', note: a.note || null,
       };
     }),
   };
+}
+
+function download(text, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 async function saveJSON() {
@@ -504,23 +755,18 @@ async function saveJSON() {
     if (err && err.name === 'AbortError') return;
     fileHandle = null; // 權限失效等狀況，改用下載
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  a.download = 'confirm-answers.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  download(text, 'confirm-answers.json');
   markSaved('已下載 confirm-answers.json，請移到 wiki\\tools\\');
 }
 
 function markSaved(msg) {
   dirty = false;
-  const t = new Date();
-  $('#savedHint').textContent = `${msg}（${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}）`;
+  hint(`${msg}（${clock()}）`);
 }
 
 $('#btnSave').addEventListener('click', saveJSON);
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveJSON(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); ONLINE ? sync() : saveJSON(); }
 });
 
 $('#btnImport').addEventListener('click', () => $('#fileInput').click());
@@ -539,16 +785,22 @@ $('#fileInput').addEventListener('change', async e => {
       n++;
     }
     persist(); render();
-    $('#savedHint').textContent = `已從 ${file.name} 載入 ${n} 題`;
+    hint(`已從 ${file.name} 載入 ${n} 題`);
   } catch (err) {
     alert('無法讀取這個檔案，請確認是這個表單儲存的 JSON。');
   }
   e.target.value = '';
 });
 
-window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => {
+  const unsaved = ONLINE ? (syncing || Object.keys(session.pending).length > 0) : dirty;
+  if (unsaved) { e.preventDefault(); e.returnValue = ''; }
+});
 
-render();
+/* ---------- 開始 ---------- */
+// 共用模式每次打開都先填名字與通關密語（名字帶入上次用的）
+if (!ONLINE) render();
+else showGate();
 </script>
 </body>
 </html>

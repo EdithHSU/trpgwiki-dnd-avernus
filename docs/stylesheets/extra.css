@@ -52,6 +52,7 @@ html {
   --n-blue: #0b6e99;
   --n-gray-bg: #ebeced;
   --n-brown-bg: #e9e5e3;
+  --n-green-bg: #ddedea;
   --n-brown: #64473a;
 
   --md-default-bg-color: var(--n-bg);
@@ -101,6 +102,7 @@ html {
   --n-blue: #529cca;
   --n-gray-bg: #373737;
   --n-brown-bg: #4a3229;
+  --n-green-bg: #2b593f;
   --n-brown: #ba856f;
 
   --md-default-bg-color: var(--n-bg);
@@ -186,6 +188,21 @@ body {
 }
 .md-header__option > .md-header__button {
   margin: 0 2px;
+}
+/* 右上角的待確認名詞入口（hooks/notion.py 插入）；窄螢幕只留圖示 */
+.md-header__button.md-header__confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 2px;
+  padding: 4px 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+@media screen and (max-width: 44.984375em) {
+  .md-header__confirm-text {
+    display: none;
+  }
 }
 [dir] .md-header__option .md-icon svg,
 .md-header__button.md-icon svg {
@@ -636,6 +653,8 @@ body {
 .notion-tag--ch3 { background: var(--n-red-bg); }
 .notion-tag--ch4 { background: var(--n-brown-bg); }
 .notion-tag--pending { background: var(--n-red-bg); }
+.notion-tag--good { background: var(--n-green-bg); }
+.notion-tag--evil { background: var(--n-red-bg); }
 
 /* ---------- 提示框 → Notion Callout ---------- */
 .md-typeset .admonition,
@@ -878,6 +897,55 @@ body {
   font-size: var(--fs-meta);
 }
 
+/* 玩家角色頁的「出場與提及」依章節分頁（hooks/backlinks.py 產生 Material 的分頁結構） */
+.md-typeset .backlinks-tabs {
+  margin: 0;
+}
+.md-typeset .backlinks-tabs > .tabbed-labels {
+  box-shadow: 0 -1px var(--n-divider) inset;
+}
+.md-typeset .backlinks-tabs > .tabbed-labels > label {
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  color: var(--n-text-2);
+  padding: 8px 10px;
+}
+.md-typeset .backlinks-tabs > .tabbed-labels > label:hover {
+  color: var(--n-text);
+}
+.md-typeset .backlinks-tab-count {
+  margin-left: 6px;
+  color: var(--n-text-3);
+  font-weight: 400;
+}
+.md-typeset .backlinks-tabs > .tabbed-content {
+  padding-top: 8px;
+}
+/* ---------- 關係圖（mermaid）：改用 Notion 的灰階，不用主題的強調色 ---------- */
+/* Material 把這些變數定義在 :root > * 上，要用同樣的選擇器才蓋得過 */
+:root > * {
+  --md-mermaid-font-family: inherit;
+  --md-mermaid-edge-color: var(--n-text-3);
+  --md-mermaid-node-bg-color: var(--n-callout);
+  --md-mermaid-node-fg-color: var(--n-text);
+  --md-mermaid-label-bg-color: var(--n-bg);
+  --md-mermaid-label-fg-color: var(--n-text-2);
+}
+.md-typeset .mermaid {
+  margin: 24px 0;
+}
+/* 關係圖節點多，縮到內文寬度字會太小：給圖較大的寬度，放不下時左右捲動 */
+.md-typeset .relationship-graph {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+.md-typeset .relationship-graph .mermaid {
+  min-width: 1000px;
+  margin: 0;
+}
+.md-typeset .relationship-table td:nth-child(-n+2) {
+  white-space: nowrap;
+}
 /* ---------- 上一頁／下一頁（hooks/notion.py 產生，在內文欄裡） ---------- */
 .md-footer {
   display: none;

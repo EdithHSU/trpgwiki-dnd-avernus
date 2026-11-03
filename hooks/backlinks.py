@@ -9,6 +9,8 @@
 - front matter 設 `backlinks: false` 的頁面：不顯示反向連結，它連出去的連結也不計入
   （首頁、時間線、名詞表這類索引頁用，避免每頁都出現同樣的來源）。
 - 區塊帶 data-search-exclude 屬性，不會被搜尋索引收錄。
+- 依來源分成分頁：集數依章節（第一章…），其他頁面依類型（玩家角色、NPC、地點、物品）；
+  空的分頁不列，只有一組時不分頁。
 """
 
 from __future__ import annotations
@@ -27,6 +29,15 @@ log = logging.getLogger("mkdocs.hooks.backlinks")
 SECTION_TITLE = "出場與提及"
 MAX_SENTENCES = 3
 EPISODE_DIR = "episodes/"
+# 「出場與提及」分頁：集數依章節分，其他頁面依資料夾分；空的不列，只有一組時不分頁
+CHAPTERS = "一二三四"
+TYPE_TABS = (
+    ("characters/", "玩家角色"),
+    ("npcs/", "NPC"),
+    ("places/", "地點"),
+    ("items/", "物品"),
+)
+OTHERS_TAB = "其他頁面"
 
 # [文字](目標 "可選標題")；排除圖片 ![...]；目標可用 <...> 包住
 LINK_RE = re.compile(
@@ -165,23 +176,61 @@ def on_page_content(html_out, page, config, files):
     # 給 hooks/notion.py 的屬性列用
     page.meta["backlink_episodes"] = sum(s.startswith(EPISODE_DIR) for s in sources)
 
-    items = []
-    for source in sources:
+    def item(source):
         url = files.get_file_from_path(source).url_relative_to(page.file)
         sentences = _index[src][source]
         quotes = "".join(f"<li>{s}</li>" for s in sentences[:MAX_SENTENCES])
         more = len(sentences) - MAX_SENTENCES
         if more > 0:
             quotes += f'<li class="backlinks-more">另有 {more} 處提及</li>'
-        items.append(
+        return (
             f'<li><div class="backlinks-source"><a class="backlink-page" data-src="{html.escape(source)}" '
             f'href="{html.escape(url)}">{html.escape(_label(source))}</a></div>'
             f'<ul class="backlinks-quotes">{quotes}</ul></li>'
         )
 
+    def listing(group):
+        return f'<ul class="backlinks-list">{"".join(item(s) for s in group)}</ul>'
+
+    groups = _tab_groups(sources)
+    body = _tabs(groups, listing) if len(groups) > 1 else listing(sources)
     return (
         html_out
         + '\n<section class="backlinks" data-search-exclude>'
         + f'<h2 id="{SECTION_TITLE}">{SECTION_TITLE}<span class="backlinks-count">{len(sources)}</span></h2>'
-        + f'<ul class="backlinks-list">{"".join(items)}</ul></section>'
+        + body
+        + "</section>"
+    )
+
+
+def _tab_groups(sources):
+    """集數依章節分組，其他頁面依資料夾分組；空的組不列出。"""
+    groups = {f"第{CHAPTERS[n - 1]}章": [] for n in range(1, len(CHAPTERS) + 1)}
+    for _, label in TYPE_TABS:
+        groups[label] = []
+    groups[OTHERS_TAB] = []
+    for s in sources:
+        chapter = _meta.get(s, {}).get("chapter")
+        if s.startswith(EPISODE_DIR) and isinstance(chapter, int) and 1 <= chapter <= len(CHAPTERS):
+            groups[f"第{CHAPTERS[chapter - 1]}章"].append(s)
+            continue
+        label = next((label for prefix, label in TYPE_TABS if s.startswith(prefix)), OTHERS_TAB)
+        groups[label].append(s)
+    return [(label, group) for label, group in groups.items() if group]
+
+
+def _tabs(groups, listing):
+    """輸出 Material（pymdownx.tabbed 的 alternate 樣式）認得的分頁 HTML，預設打開第一頁。"""
+    inputs = "".join(
+        f'<input{" checked" if i == 0 else ""} id="__tabbed_bl_{i + 1}" name="__tabbed_bl" type="radio">'
+        for i in range(len(groups))
+    )
+    labels = "".join(
+        f'<label for="__tabbed_bl_{i + 1}">{label}<span class="backlinks-tab-count">{len(group)}</span></label>'
+        for i, (label, group) in enumerate(groups)
+    )
+    blocks = "".join(f'<div class="tabbed-block">{listing(group)}</div>' for _, group in groups)
+    return (
+        f'<div class="tabbed-set tabbed-alternate backlinks-tabs" data-tabs="bl:{len(groups)}">'
+        f'{inputs}<div class="tabbed-labels">{labels}</div><div class="tabbed-content">{blocks}</div></div>'
     )

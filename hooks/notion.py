@@ -6,6 +6,7 @@
   其他頁顯示類型。出場集數由 backlinks hook 寫進 page.meta["backlink_episodes"]。
   沒有確切日期的集數用 front matter 的 `date_label` 顯示說明；`position` 顯示劇情位置
   （例如「位置未定」）。不要用 `status`，那是 Material 的導覽狀態欄位。
+  玩家角色頁另有 `full_name`、`role`、`race`、`alignment`（目前陣營）。
 - front matter 設 `cover: true` 的頁面在頂端加一張封面（樣式見 extra.css）。
 
 必須排在 hooks/backlinks.py 之後載入。
@@ -64,6 +65,14 @@ def _properties(page) -> str:
     folder = _folder(src)
     if folder in TYPE_LABEL:
         rows.append(("🏷️", "類型", f'<span class="notion-tag">{TYPE_LABEL[folder]}</span>'))
+    # 玩家角色頁：全名、職業、種族、目前陣營
+    for key, icon, label in (("full_name", "🪪", "全名"), ("role", "⚔️", "職業"), ("race", "🧬", "種族")):
+        if meta.get(key):
+            rows.append((icon, label, html.escape(str(meta[key]))))
+    if meta.get("alignment"):
+        align = str(meta["alignment"])
+        tone = "evil" if "邪惡" in align else "good" if "善良" in align else "neutral"
+        rows.append(("⚖️", "目前陣營", f'<span class="notion-tag notion-tag--{tone}">{html.escape(align)}</span>'))
     # 沒有確切日期的集數用 date_label 說明（例如「2025-12（確切日期不詳）」）
     if meta.get("date") or meta.get("date_label"):
         rows.append(("📅", "日期", html.escape(str(meta.get("date") or meta["date_label"]))))
@@ -142,6 +151,15 @@ def on_post_page(output, page, config):
         '<label class="md-nav__link md-nav__link--active" for="__toc">',
         '<label class="md-nav__link md-nav__link--active" for="__toc">'
         + _icon(page.file.src_uri, "notion-nav-icon"),
+    )
+    # 頁首右上角（搜尋前）放待確認名詞表單的入口；表單是 docs/confirm/index.html 靜態頁
+    confirm = "../" * page.url.count("/") + "confirm/"
+    output = output.replace(
+        '<label class="md-header__button md-icon" for="__search">',
+        f'<a class="md-header__button md-header__confirm" href="{confirm}" title="待確認名詞">'
+        '<span aria-hidden="true">📝</span><span class="md-header__confirm-text">待確認名詞</span></a>'
+        '<label class="md-header__button md-icon" for="__search">',
+        1,
     )
     # 每頁用自己的 emoji 當 favicon
     output = re.sub(

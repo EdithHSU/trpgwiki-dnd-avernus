@@ -49,6 +49,14 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - pymdownx.details
+  # 關係圖用 mermaid（Material 會自動載入並套用深淺色主題）
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
       # 保留中文標題作為錨點（預設會變成 _1、_2）
@@ -115,6 +123,7 @@ nav:
           - 露露的回憶：艾德爾格蘭（錄音筆 0051）: episodes/rec-0051.md
       # 劇情接不上正式進度、中間缺集的集數（對應團錄的「暫時紀錄」），目前沒有
   - 玩家角色:
+      - 人物關係: relationships.md
       - 安格: characters/安格.md
       - 歐蓓: characters/歐蓓.md
       - 蓋比: characters/蓋比.md
