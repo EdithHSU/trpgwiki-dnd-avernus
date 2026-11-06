@@ -114,7 +114,7 @@ nav:
           - 九根權杖（錄音筆 0045）: episodes/rec-0045.md
           - 飛車追逐（錄音筆 0046）: episodes/rec-0046.md
           - 05月 伊爾馬特的紅繩（錄音筆 0047）: episodes/rec-0047.md
-          - 06月 沸血湖的摩登肯（錄音筆 0048）: episodes/rec-0048.md
+          - 06月 沸血湖的魔鄧肯（錄音筆 0048）: episodes/rec-0048.md
           # 0048 結尾抵達方尖碑，Monkie酒吧 3 沒有提到這段，可能缺錄
           - 地獄騎士之墓（Monkie酒吧 3）: episodes/monkie-3.md
           - 奧蘭蘇斯的日記（Monkie酒吧 4）: episodes/monkie-4.md
@@ -146,7 +146,7 @@ nav:
           - 希爾維亞: npcs/希爾維亞.md
           - 崔希哥: npcs/崔希哥.md
       - 艾爾托瑞爾:
-          - 哈吉娜: npcs/哈吉娜.md
+          - 哈金娜: npcs/哈金娜.md
           - 弗莉亞: npcs/弗莉亞.md
           - 賽爾特恩: npcs/賽爾特恩.md
           - 吉迪恩・萊特沃德: npcs/吉迪恩・萊特沃德.md
@@ -157,14 +157,14 @@ nav:
           - 馬哈迪: npcs/馬哈迪.md
           - 奧術魔: npcs/奧術魔.md
           - 苦痛之息: npcs/苦痛之息.md
-          - 摩登肯: npcs/摩登肯.md
+          - 魔鄧肯: npcs/魔鄧肯.md
           - 奧蘭蘇斯: npcs/奧蘭蘇斯.md
           - 耶爾: npcs/耶爾.md
           - 柯斯徹齊: npcs/柯斯徹齊.md
-          - 耶諾谷: npcs/耶諾谷.md
+          - 耶諾古: npcs/耶諾古.md
           - 哈魯曼: npcs/哈魯曼.md
-          - 黃鷺鷥: npcs/黃鷺鷥.md
-          - 拉爾沙拉: npcs/拉爾沙拉.md
+          - 紅露絲: npcs/紅露絲.md
+          - 拉爾薩拉: npcs/拉爾薩拉.md
           - 殘忍的阿克漢: npcs/殘忍的阿克漢.md
   - 地點:
       - 萬瑟姆普宅: places/萬瑟姆普宅.md
@@ -175,8 +175,8 @@ nav:
       - 阿弗納斯: places/阿弗納斯.md
       - 指節骨要塞: places/指節骨要塞.md
       - 流浪市集: places/流浪市集.md
-      - 哈羅曼之丘: places/哈羅曼之丘.md
-      - 古吉林: places/古吉林.md
+      - 哈魯曼之丘: places/哈魯曼之丘.md
+      - 骨脊林: places/骨脊林.md
       - 阿克漢之塔: places/阿克漢之塔.md
       - 貝爾的熔爐: places/貝爾的熔爐.md
       - 墜毀的飛行堡壘: places/墜毀的飛行堡壘.md
@@ -189,4 +189,4 @@ nav:
       - 托姆之盔: items/托姆之盔.md
       - 扎瑞爾之劍: items/扎瑞爾之劍.md
       - 靈魂幣: items/靈魂幣.md
-      - 權杖: items/權杖.md
+      - 精金權杖: items/精金權杖.md
