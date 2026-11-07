@@ -10,7 +10,7 @@ hide:
 
 六名主角從博德之門一路打進湧血城寨，途中幾乎每個人都換過一次陣營。這張圖整理他們彼此之間，以及和幾位重要 NPC 的關係，資料截至[露露的回憶：艾德爾格蘭](episodes/rec-0051.md)。
 
-**綠色**的人物靠近托姆與善良，**紅色**的人物靠近契約與邪惡；拿著加格斯之盾的[凱侖](characters/凱侖.md)和墮落的天使[扎瑞爾](npcs/扎瑞爾.md)站在中間，以**灰色**表示。點圖上的人物可以打開他的頁面。
+**綠色**的人物靠近托姆與善良，**紅色**的人物靠近契約與邪惡；拿著加葛斯之盾的[凱侖](characters/凱侖.md)和墮落的天使[扎瑞爾](npcs/扎瑞爾.md)站在中間，以**灰色**表示。點圖上的人物可以打開他的頁面。
 
 <div class="relationship-graph" markdown>
 
@@ -26,7 +26,7 @@ flowchart LR
   zariel["扎瑞爾<br/>阿弗納斯之主"]:::mid
   quinn["奎恩<br/>巴爾之子"]:::evil
   angor["安格<br/>遊俠"]:::evil
-  gargas["加格斯<br/>盾中的深獄煉魔"]:::evil
+  gargas["加葛斯<br/>盾中的深獄煉魔"]:::evil
   imp["塔吉恩<br/>安格的小魔鬼"]:::evil
   afu["阿弗<br/>佛洛摩"]:::evil
   mahadi["馬哈迪<br/>流浪市集主人"]:::evil
@@ -65,7 +65,7 @@ flowchart LR
   click zariel "../npcs/扎瑞爾/"
   click quinn "../characters/奎恩/"
   click angor "../characters/安格/"
-  click gargas "../items/加格斯之盾/"
+  click gargas "../items/加葛斯之盾/"
   click afu "../npcs/阿弗/"
   click mahadi "../npcs/馬哈迪/"
 ```
@@ -88,9 +88,9 @@ flowchart LR
 | 維提克 — [雷亞](npcs/雷亞.md) | 信任 | 地獄騎士同袍，雷亞留守艾爾托瑞爾（[在阿弗納斯行軍然後拿到穢液](episodes/2025-11-08.md)） |
 | 凱侖 — 歐蓓 | 信任 | 凱侖向歐蓓坦白盾牌的秘密與對信仰的迷茫（[貝爾的委託](episodes/rec-0041.md)） |
 | [蓋比](characters/蓋比.md) — 安格 | 衝突 | 蓋比射向苦痛之息的箭被安格擋下，之後親手處決了對方（[苦痛之息的審判](episodes/rec-0039.md)） |
-| 凱侖 — [加格斯](items/加格斯之盾.md) | 契約 | 持盾，承諾若加格斯真的幫忙拯救艾爾托瑞爾，就想辦法幫他（[奧蘭蘇斯的日記](episodes/monkie-4.md)、[血痂裡的城寨](episodes/rec-0049.md)） |
-| 加格斯 — 安格 | 契約 | 給安格穢液配方（[松江南京站](episodes/songjiang.md)、[伊爾馬特的紅繩](episodes/rec-0047.md)） |
-| 加格斯 → 塔吉恩 | 指導 | 教安格的小魔鬼吞噬靈魂，安格不知情（[奧蘭蘇斯的日記](episodes/monkie-4.md)） |
+| 凱侖 — [加葛斯](items/加葛斯之盾.md) | 契約 | 持盾，承諾若加葛斯真的幫忙拯救艾爾托瑞爾，就想辦法幫他（[奧蘭蘇斯的日記](episodes/monkie-4.md)、[血痂裡的城寨](episodes/rec-0049.md)） |
+| 加葛斯 — 安格 | 契約 | 給安格穢液配方（[松江南京站](episodes/songjiang.md)、[伊爾馬特的紅繩](episodes/rec-0047.md)） |
+| 加葛斯 → 塔吉恩 | 指導 | 教安格的小魔鬼吞噬靈魂，安格不知情（[奧蘭蘇斯的日記](episodes/monkie-4.md)） |
 | 安格 — 塔吉恩 | 契約 | 主人與契約魔鬼 |
 | [露露](npcs/露露.md) → 塔吉恩 | 指導 | 教牠冥想，說要讓善良遍布世界（[艦橋上的冥想](episodes/rec-0044.md)） |
 | 露露 — 凱侖 | 信任 | 露露在冥想中得到伊爾馬特的荊棘紅繩，可以用來幫助凱侖（[伊爾馬特的紅繩](episodes/rec-0047.md)） |
